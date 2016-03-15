@@ -1,0 +1,148 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Thu Feb  11 16:59:17 2016
+
+@author: sonia
+"""
+
+import pandas as pd
+import folium
+from folium.plugins import MarkerCluster
+from folium.element import IFrame
+from folium import Icon
+
+
+def getData(file='train.csv',K=10):
+    '''
+    输入:
+    K:    最高犯罪类型的种类数
+    
+    输出：
+    data2: 只包含前K种犯罪类型的数据
+    names: 前K种犯罪类型的名称
+    freqs: 前K种犯罪类型的频数
+    '''
+    data = pd.read_csv(file)
+    # 选择K种最大的犯罪类型
+    freqs = list(data['Category'].value_counts()[0:K])
+    names = list(data['Category'].value_counts()[0:K].index)
+    nameAndFrequency = list(zip(names,freqs))
+    print('Top 10 crime name and corresssponding amount :')
+    for i in nameAndFrequency:
+        print (i)
+    #小范围数据data2
+    index = data.Category.isin(names)
+    data2  =  data[index]
+    return (data2,names,freqs)
+
+data,names,freqs = getData()
+
+#构建从犯罪名到其marker颜色的字典
+def getDictName2Color(names,colors=['red', 'blue', 'green', 'purple', 'orange', 'darkred',
+         'lightred', 'beige', 'darkblue', 'darkgreen', 'cadetblue',
+         'darkpurple', 'white', 'pink', 'lightblue', 'lightgreen',
+         'gray', 'black', 'lightgray']):
+    color_s = colors[0:len(names)]
+    name2color = dict(zip(names,color_s))
+    
+    #输出name,color
+    for i in name2color:
+        print('name：'+ i+'； color: '+name2color[i] )
+    return name2color
+
+name2color = getDictName2Color(names)
+
+
+# 预先定义table
+
+
+table = """
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+table {{
+    width:100%;
+}}
+table, th, td {{
+    border: 1px solid black;
+    border-collapse: collapse;
+}}
+th, td {{
+    padding: 5px;
+    text-align: left;
+}}
+table#t01 tr:nth-child(odd) {{
+    background-color: #eee;
+}}
+table#t01 tr:nth-child(even) {{
+   background-color:#fff;
+}}
+</style>
+</head>
+<body>
+
+<table id="t01">
+  <tr>
+    <td>Category</td>
+    <td>{}</td>
+  </tr>
+  <tr>
+    <td>Descript</td>
+    <td>{}</td>
+  </tr>
+  <tr>
+    <td>DayOfWeek</td>
+    <td>{}</td>
+  </tr>
+  <tr>
+    <td>PdDistrict</td>
+    <td>{}</td>
+  </tr>
+  <tr>
+    <td>Resolution</td>
+    <td>{}</td>
+  </tr>
+  <tr>
+    <td>Address</td>
+    <td>{}</td>
+  </tr>
+</table>
+</body>
+</html>
+""".format
+
+#设置地图
+
+
+#初始化地图
+SF_COORDINATES = (37.76, -122.45)  
+mapd = folium.Map(location=SF_COORDINATES, zoom_start=12)
+
+#初始化聚类中心
+icons,popups, locations = [], [],[]
+MAX_RECORDS = 10000
+
+
+#设置每个点的信息
+width, height = 310,110  #弹出框的大小
+for idx,row in data[0:MAX_RECORDS].iterrows():  
+    
+    #设置弹出框信息
+    Category = row.Category
+    Descript = row.Descript
+    DayOfWeek = row.DayOfWeek
+    PdDistrict = row.PdDistrict
+    Resolution = row.Resolution
+    Address = row.Address
+    iframe = IFrame(table(Category,Descript,DayOfWeek,PdDistrict,Resolution,Address), width=width, height=height)
+    #设置每个点的marker信息
+    icons.append(Icon(color=name2color[Category]))
+    #增加弹出框信息和地理位置信息
+    popups.append(iframe)
+    locations.append([row.Y,row.X])
+
+marker_cluster = MarkerCluster(locations=locations, popups=popups,icons=icons)
+mapd.add_children(marker_cluster)
+
+mapd.save('test.html')
